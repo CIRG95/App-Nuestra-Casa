@@ -20,6 +20,7 @@ export const A = {
   tab(k) { S.tab = k; S.espacio = null; render(); window.scrollTo(0, 0); },
   filtro(id) { S.filtro = id; render(); },
   invVista(k) { S.invVista = k; render(); },
+  irInventario(v) { S.invVista = v; S.filtro = 'todos'; A.tab('inventario'); },
   tarVista(k) { S.tarVista = k; render(); },
   mes(d) { const [y, m] = S.mes.split('-').map(Number); const x = new Date(y, m - 1 + d, 1); S.mes = `${x.getFullYear()}-${pad(x.getMonth() + 1)}`; render(); },
   verEspacio(id) { S.espacio = id; history.pushState({ esp: id }, ''); render(); window.scrollTo(0, 0); },

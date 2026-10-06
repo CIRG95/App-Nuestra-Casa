@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2F6B4F">
+<meta name="theme-color" content="#F4F2FB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Nuestra Casa</title>
 <link rel="manifest" href="manifest.json">
@@ -11,24 +11,30 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#E9EEE8;--surf:#FFFFFF;--surf2:#F2F5F1;--ink:#1D2A23;--muted:#5C6C63;--line:#D3DCD5;
-  --pri:#2F6B4F;--pri-ink:#FFFFFF;--warn:#A86F06;--warn-bg:#FBEFD2;--bad:#B23F28;--bad-bg:#F8E0DA;
-  --p1:#2F6B4F;--p2:#7A4E9E;--r:14px;
-  font-family:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --bg:#F4F2FB;--surf:#FFFFFF;--surf2:#EEEBF8;--ink:#1E1B3A;--muted:#5B5774;--line:#E2DFF0;
+  --pri:#2E4BD8;--pri-ink:#FFFFFF;--warn:#7A5300;--warn-bg:#FFF1BF;--bad:#A3301B;--bad-bg:#FFE2DC;
+  --p1:#2E4BD8;--p2:#7A3FD1;--r:22px;
+  --m1:#2E4BD8;--m1-ink:#FFFFFF;--m2:#FF9A52;--m2-ink:#2A1606;--m3:#FFD84D;--m3-ink:#2A2206;--sombra:rgba(30,27,58,.18);
+  --t0:#FFE1CF;--t1:#FFF1B8;--t2:#D6E4FF;--t3:#D9F5E8;--t4:#F3DDFB;--t5:#FFD9E2;--t6:#DDF3C9;--t7:#E3E1F2;
+  font-family:'Fredoka','Trebuchet MS',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   color-scheme:light dark;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#131A16;--surf:#1C2520;--surf2:#24302A;--ink:#E4EDE7;--muted:#98A89E;--line:#2E3A33;
-  --pri:#62B189;--pri-ink:#0D1912;--warn:#E8B44C;--warn-bg:#3A2F14;--bad:#E9806A;--bad-bg:#3D221C;
-  --p1:#62B189;--p2:#BD95E0;
+  --bg:#16142A;--surf:#211E38;--surf2:#2A2745;--ink:#EEECFA;--muted:#A9A5C4;--line:#36325A;
+  --pri:#8195FF;--pri-ink:#0E1030;--warn:#FFD36B;--warn-bg:#3B3216;--bad:#FF907A;--bad-bg:#45211B;
+  --p1:#8DA0FF;--p2:#CDA6FF;
+  --m1:#4C64EE;--m1-ink:#FFFFFF;--m2:#FF9A52;--m2-ink:#2A1606;--m3:#FFD84D;--m3-ink:#2A2206;--sombra:rgba(0,0,0,.45);
+  --t0:#4A2C20;--t1:#463D16;--t2:#22305A;--t3:#1C4034;--t4:#3E2550;--t5:#4C2230;--t6:#2C4220;--t7:#2E2B48;
 }}
 :root[data-theme="dark"]{
-  --bg:#131A16;--surf:#1C2520;--surf2:#24302A;--ink:#E4EDE7;--muted:#98A89E;--line:#2E3A33;
-  --pri:#62B189;--pri-ink:#0D1912;--warn:#E8B44C;--warn-bg:#3A2F14;--bad:#E9806A;--bad-bg:#3D221C;
-  --p1:#62B189;--p2:#BD95E0;
+  --bg:#16142A;--surf:#211E38;--surf2:#2A2745;--ink:#EEECFA;--muted:#A9A5C4;--line:#36325A;
+  --pri:#8195FF;--pri-ink:#0E1030;--warn:#FFD36B;--warn-bg:#3B3216;--bad:#FF907A;--bad-bg:#45211B;
+  --p1:#8DA0FF;--p2:#CDA6FF;
+  --m1:#4C64EE;--m1-ink:#FFFFFF;--m2:#FF9A52;--m2-ink:#2A1606;--m3:#FFD84D;--m3-ink:#2A2206;--sombra:rgba(0,0,0,.45);
+  --t0:#4A2C20;--t1:#463D16;--t2:#22305A;--t3:#1C4034;--t4:#3E2550;--t5:#4C2230;--t6:#2C4220;--t7:#2E2B48;
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
@@ -190,6 +196,53 @@ h3.cap::first-letter{text-transform:uppercase}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:11px 14px;border-radius:12px;z-index:30;max-width:92vw;width:max-content;font-size:.9rem;display:flex;gap:14px;align-items:center}
 #toast[hidden]{display:none}
 #toast button{background:none;border:0;color:var(--bg);font-weight:800;text-decoration:underline;padding:0}
+
+/* ===== Diseño "Refrigerador" ===== */
+body{padding-bottom:calc(104px + env(safe-area-inset-bottom))}
+.brand{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.hero{padding:4px 2px 14px}
+.hero p{font-size:1rem}
+.hero h1{font-size:clamp(2.2rem,10vw,2.6rem);font-weight:700;letter-spacing:-.02em;line-height:1.05}
+.imanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 16px}
+.iman{border:0;border-radius:22px;padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;box-shadow:0 5px 0 var(--sombra);transition:transform .15s}
+.iman b{font-size:2.1rem;line-height:1;font-weight:700}
+.iman span{font-size:.82rem;font-weight:500}
+.iman.m1{background:var(--m1);color:var(--m1-ink);transform:rotate(-2deg)}
+.iman.m2{background:var(--m2);color:var(--m2-ink);transform:rotate(1.5deg)}
+.iman.m3{background:var(--m3);color:var(--m3-ink);transform:rotate(-1deg)}
+.iman:active{transform:rotate(0) scale(.97)}
+.group,.calm,.linkrow,.semana,.balance{border:0;border-radius:22px}
+.calm{border:2px dashed var(--line);background:transparent}
+.row{border-top:1.5px dashed var(--line);padding:8px 14px}
+.notif{border-top:1.5px dashed var(--line)}
+.check{border-radius:50%;border-width:2.5px;width:30px;height:30px}
+.tag{border-radius:999px;padding:2px 9px;font-weight:600}
+.qty button{border-radius:50%;border:0;background:var(--surf2)}
+.mini{border-radius:999px}
+.chip{border:0;font-weight:500}
+.chip.on{background:var(--pri);color:var(--pri-ink)}
+.seg{border:0;border-radius:999px;padding:4px}
+.seg button{border-radius:999px}
+input,select,textarea{border-radius:14px;border-width:1.5px}
+.pri,.ghost{border-radius:14px}
+.fab{border-radius:999px;bottom:calc(96px + env(safe-area-inset-bottom));box-shadow:0 5px 0 var(--sombra)}
+.sheet{border-radius:28px 28px 0 0}
+.sem-bar{border:0;height:14px}
+h2.sec{font-size:1.15rem}
+.tiles{gap:10px}
+.tile{border:0;border-radius:22px;padding:14px;gap:2px;min-height:118px;color:var(--ink)}
+.tile .e{width:42px;height:42px;border-radius:14px;background:var(--surf);display:grid;place-items:center;font-size:1.35rem}
+.tile .n{font-size:1.06rem;margin-top:8px}
+.tile .c{color:var(--ink);opacity:.75}
+.tile .al{color:var(--bad);opacity:1}
+.tile.t0{background:var(--t0)}.tile.t1{background:var(--t1)}.tile.t2{background:var(--t2)}.tile.t3{background:var(--t3)}
+.tile.t4{background:var(--t4)}.tile.t5{background:var(--t5)}.tile.t6{background:var(--t6)}.tile.t7{background:var(--t7)}
+nav.tabs{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));border:0;border-radius:28px;padding:8px 6px;box-shadow:0 8px 24px rgba(20,16,50,.18);max-width:520px;margin:0 auto}
+nav.tabs .in{justify-content:space-around}
+nav.tabs button{flex:none;width:48px;height:48px;border-radius:50%;justify-content:center;padding:0}
+nav.tabs button.on{background:var(--pri);color:var(--pri-ink)}
+nav.tabs button .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#toast{bottom:calc(170px + env(safe-area-inset-bottom));border-radius:16px}
 @media (prefers-reduced-motion:no-preference){
   .sheet{animation:subir .2s ease-out}
   @keyframes subir{from{transform:translateY(30px);opacity:.5}}

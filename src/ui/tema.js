@@ -12,6 +12,6 @@ export function aplicarTema() {
   else r.removeAttribute('data-theme');
   const oscuro = cfg.tema === 'oscuro' || (cfg.tema !== 'claro' && (TEMA_BASE ? TEMA_BASE === 'dark' : !!(oscuroSistema && oscuroSistema.matches)));
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.setAttribute('content', oscuro ? '#131A16' : '#2F6B4F');
+  if (m) m.setAttribute('content', oscuro ? '#16142A' : '#F4F2FB');
 }
 if (oscuroSistema && oscuroSistema.addEventListener) oscuroSistema.addEventListener('change', aplicarTema);

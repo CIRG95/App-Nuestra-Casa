@@ -23,7 +23,7 @@ function render() {
   const keep = ae && ae.id && ae.closest && ae.closest('#main') ? { id: ae.id, v: ae.value, s: ae.selectionStart } : null;
 
   $('#nav').innerHTML = TABS.map(([k, l]) =>
-    `<button class="${S.tab === k && !S.espacio ? 'on' : ''}" onclick="A.tab('${k}')" aria-label="${l}">${ICON[k]}<span>${l}</span></button>`).join('');
+    `<button class="${S.tab === k && !S.espacio ? 'on' : ''}" onclick="A.tab('${k}')" aria-label="${l}" title="${l}">${ICON[k]}<span class="lbl">${l}</span></button>`).join('');
   const enInicio = S.tab === 'inicio' && !S.espacio, nuevas = actividad.noLeidas();
   $('#bell').hidden = !enInicio;
   $('#bell').setAttribute('aria-label', nuevas ? `Novedades: ${nuevas} sin ver` : 'Novedades');
@@ -62,7 +62,14 @@ function vInicio() {
   const gm = gastosMes(h.slice(0, 7), false);
   const totalMes = gm.reduce((a, g) => a + num(g.monto), 0);
 
-  let out = `<section class="hero"><p>Hola, ${esc(yo())}</p><h1>${esc(fechaLarga(h))}</h1></section>` + progresoSemanal();
+  const nBajo = list('inventario').filter(stockBajo).length;
+  const fecha = fechaLarga(h);
+  let out = `<section class="hero"><p>${esc(fecha[0].toUpperCase() + fecha.slice(1))}</p><h1>Hola, ${esc(yo())}</h1></section>
+    <div class="imanes">
+      <button class="iman m1" onclick="A.tab('tareas')"><b>${tareas.length}</b><span>${tareas.length === 1 ? 'tarea hoy' : 'tareas hoy'}</span></button>
+      <button class="iman m2" onclick="A.irInventario('vence')"><b>${vence.length}</b><span>${vence.length === 1 ? 'vence pronto' : 'vencen pronto'}</span></button>
+      <button class="iman m3" onclick="A.irInventario('bajo')"><b>${nBajo}</b><span>${nBajo === 1 ? 'se acaba' : 'se acaban'}</span></button>
+    </div>` + progresoSemanal();
   if (!tareas.length && !vence.length && !bajo.length) {
     out += `<p class="calm">Todo al día. No hay tareas atrasadas, nada vence esta semana y no falta nada en el inventario.</p>`;
   }
@@ -74,12 +81,12 @@ function vInicio() {
   out += `<button class="linkrow" onclick="A.tab('gastos')"><span>Gastos de ${MESES[Number(h.slice(5, 7)) - 1]}</span><b>${clp(totalMes)}</b></button>`;
 
   out += sec('Espacios', null, "A.nuevo('espacios')");
-  out += `<div class="tiles">${espacios().map(e => {
+  out += `<div class="tiles">${espacios().map((e, idx) => {
     const inv = list('inventario').filter(i => i.espacio === e.id).length;
     const tar = list('tareas').filter(t => t.espacio === e.id && !t.hecha && t.proxima && diasHasta(t.proxima) <= 7).length;
     const alertas = list('inventario').filter(i => i.espacio === e.id && ((i.vence && diasHasta(i.vence) <= 7) || stockBajo(i))).length
       + list('tareas').filter(t => t.espacio === e.id && !t.hecha && t.proxima && diasHasta(t.proxima) < 0).length;
-    return `<button class="tile" onclick="A.verEspacio('${e.id}')"><span class="e">${e.icono}</span><span class="n">${esc(e.nombre)}</span>
+    return `<button class="tile t${idx % 8}" onclick="A.verEspacio('${e.id}')"><span class="e">${e.icono}</span><span class="n">${esc(e.nombre)}</span>
       <span class="c">${inv} ${inv === 1 ? 'producto' : 'productos'}</span>
       <span class="c">${tar} ${tar === 1 ? 'tarea' : 'tareas'} esta semana</span>
       ${alertas ? `<span class="c al">${alertas} por revisar</span>` : ''}</button>`;

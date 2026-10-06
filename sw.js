@@ -1,4 +1,4 @@
-const V = 'casa-v4';
+const V = 'casa-v5-refri';
 const SHELL = ['./', 'index.html', 'manifest.json', 'icons/icon-192.png', 'icons/icon-512.png',
   'src/main.js', 'src/core/utils.js', 'src/core/config.js', 'src/core/dominio.js',
   'src/services/dbInterface.js', 'src/services/googleAuth.js', 'src/services/googleDriveService.js', 'src/services/remindersService.js', 'src/services/actividadService.js',
