@@ -1,11 +1,11 @@
 // Pantallas: Inicio, Espacio, Inventario, Compras, Tareas, Proyectos y Gastos.
 // Solo LEEN datos (vía core/dominio.js); para cambiar algo llaman a window.A (actions.js).
-import { $, esc, clp, hoy, MESES, fechaLarga, diasHasta, num } from '../core/utils.js';
-import { cfg, yo, ESTADOS, ORDEN_ESTADO } from '../core/config.js';
-import { list, get, espacios, esp, stockBajo } from '../core/dominio.js';
+import { $, esc, clp, hoy, MESES, fechaLarga, fechaCorta, diasHasta, num } from '../core/utils.js';
+import { cfg, yo, ESTADOS, ORDEN_ESTADO, CATEGORIAS, CUENTAS } from '../core/config.js';
+import { list, get, espacios, esp, stockBajo, gastosDelMes, cuentasDelMes } from '../core/dominio.js';
 import { db } from '../services/dbInterface.js';
 import { S, enFiltro } from './state.js';
-import { ICON, TABS, sec, group, seg, rowInv, rowCompra, rowTarea, rowProyecto, rowGasto, progresoSemanal } from './components.js';
+import { ICON, TABS, sec, group, seg, rowInv, rowCompra, rowTarea, rowProyecto, rowGasto, progresoSemanal, who } from './components.js';
 import { actividad } from '../services/actividadService.js';
 
 const ETIQUETA_ESTADO = { local: 'Solo este teléfono', conectando: 'Sincronizando…', nube: 'Sincronizado', offline: 'Sin conexión', 'sin-sesion': 'Toca para sincronizar', error: 'Error al sincronizar' };
@@ -46,6 +46,10 @@ function bannerSesion() {
 }
 
 function chipsHTML() {
+  if (S.tab === 'gastos') {   // v0.2: en Gastos se filtra por categoría, no por espacio
+    const cats = ['todas', ...CATEGORIAS];
+    return `<div class="chips">${cats.map(c => `<button class="chip ${S.filtroCat === c ? 'on' : ''}" onclick="A.filtroCat('${esc(c)}')">${c === 'todas' ? 'Todas' : esc(c)}</button>`).join('')}</div>`;
+  }
   const items = [{ id: 'todos', icono: '', nombre: 'Todos' }, ...espacios()];
   return `<div class="chips">${items.map(e =>
     `<button class="chip ${S.filtro === e.id ? 'on' : ''}" onclick="A.filtro('${e.id}')">${e.icono ? e.icono + ' ' : ''}${esc(e.nombre)}</button>`).join('')}</div>`;
@@ -59,7 +63,8 @@ function vInicio() {
   const vence = list('inventario').filter(i => i.vence && diasHasta(i.vence) <= 7 && num(i.cantidad) > 0).sort((a, b) => a.vence.localeCompare(b.vence));
   const bajo = list('inventario').filter(i => stockBajo(i) && !(i.vence && diasHasta(i.vence) <= 7));
   const pendCompras = list('compras').filter(c => !c.comprado).length;
-  const gm = gastosMes(h.slice(0, 7), false);
+  const gm = gastosDelMes(h.slice(0, 7));
+  const cm = cuentasDelMes(h.slice(0, 7));
   const totalMes = gm.reduce((a, g) => a + num(g.monto), 0);
 
   const nBajo = list('inventario').filter(stockBajo).length;
@@ -78,7 +83,7 @@ function vInicio() {
   if (bajo.length) out += sec('Se está acabando', bajo.length) + group(bajo.map(i => rowInv(i)), '');
 
   out += `<button class="linkrow" onclick="A.tab('compras')"><span>Lista de compras</span><b>${pendCompras ? pendCompras + ' pendientes' : 'Vacía'}</b></button>`;
-  out += `<button class="linkrow" onclick="A.tab('gastos')"><span>Gastos de ${MESES[Number(h.slice(5, 7)) - 1]}</span><b>${clp(totalMes)}</b></button>`;
+  out += `<button class="linkrow" onclick="A.tab('gastos')"><span>Gastos de ${MESES[Number(h.slice(5, 7)) - 1]}${cm.sinPagar ? `<small class="rojo">${cm.sinPagar} ${cm.sinPagar === 1 ? 'cuenta sin pagar' : 'cuentas sin pagar'}</small>` : cm.filas.length ? '<small class="verde">Cuentas al día</small>' : ''}</span><b>${clp(totalMes)}</b></button>`;
 
   out += sec('Espacios', null, "A.nuevo('espacios')");
   out += `<div class="tiles">${espacios().map((e, idx) => {
@@ -100,15 +105,12 @@ function vEspacio() {
   const inv = list('inventario').filter(f).sort((a, b) => a.nombre.localeCompare(b.nombre));
   const compras = list('compras').filter(c => f(c) && !c.comprado);
   const proys = list('proyectos').filter(x => f(x) && x.estado !== 'listo');
-  const gastos = gastosMes(hoy().slice(0, 7), false).filter(f);
   let out = `<button class="back" onclick="history.back()">${ICON.back}Volver</button>
     <div class="esp-h"><span>${e.icono}</span><h1>${esc(e.nombre)}</h1></div>`;
   out += sec('Tareas', tareas.length, `A.nuevo('tareas',${p})`) + group(tareas.map(t => rowTarea(t, false)), 'Sin tareas pendientes en este espacio.');
   out += sec('Inventario', inv.length, `A.nuevo('inventario',${p})`) + group(inv.map(i => rowInv(i, false)), 'Aún no hay productos registrados aquí.');
   out += sec('Por comprar', compras.length, `A.nuevo('compras',${p})`) + group(compras.map(c => rowCompra(c, false)), 'Nada pendiente de comprar para este espacio.');
   out += sec('Proyectos', proys.length, `A.nuevo('proyectos',${p})`) + group(proys.map(x => rowProyecto(x, false)), 'Sin proyectos activos.');
-  out += sec(`Gastos de ${MESES[new Date().getMonth()]}`, gastos.length ? clp(gastos.reduce((a, g) => a + num(g.monto), 0)) : null, `A.nuevo('gastos',${p})`)
-    + group(gastos.sort((a, b) => b.fecha.localeCompare(a.fecha)).map(rowGasto), 'Sin gastos este mes.');
   out += `<div class="acts"><button class="ghost" onclick="A.editar('espacios','${e.id}')">Editar espacio</button></div>`;
   return out;
 }
@@ -186,34 +188,77 @@ function vProyectos() {
   return out.join('');
 }
 
+/** Gastos de un mes según el periodo que cubren, con el filtro de categoría de la pestaña. */
 function gastosMes(ym, conFiltro = true) {
-  return list('gastos').filter(g => (g.fecha || '').startsWith(ym) && (!conFiltro || enFiltro(g)));
+  return gastosDelMes(ym).filter(g => !conFiltro || S.filtroCat === 'todas' || (g.categoria || 'Otros') === S.filtroCat);
 }
+
+/** Cuentas básicas del mes: pagadas en verde con monto y quién pagó; sin pagar en rojo. */
+function bloqueCuentas(ym) {
+  const { filas, pagadas } = cuentasDelMes(ym);
+  if (!filas.length) return sec('Cuentas del mes', null, 'A.cuentas()') + `<p class="calm">No hay cuentas básicas. Agrégalas para ver cada mes cuáles están pagadas.</p>`;
+  const rows = filas.map(({ s, pagos, total, pagada }) => {
+    const nombre = `<span class="t">${s.icono} ${esc(s.nombre)}</span>${s.proveedor ? `<span class="prov">${esc(s.proveedor)}</span>` : ''}`;
+    if (!pagada) return `<div class="row cuenta sinpagar">
+      <div class="row-main" style="cursor:default">${nombre}<span class="s"><span class="tag bad">Sin pagar</span></span></div>
+      <button class="mini rojo" onclick="A.pagarCuenta('${s.id}')">Marcar pagada</button></div>`;
+    const ult = pagos[0];
+    return `<div class="row cuenta pagada">
+      <button class="row-main" onclick="A.editar('gastos','${ult.id}')">${nombre}
+        <span class="s"><span class="tag ok">Pagada</span>${who(ult.pagadoPor)}${ult.fecha ? `<span>${fechaCorta(ult.fecha)}</span>` : ''}${pagos.length > 1 ? `<span>${pagos.length} pagos</span>` : ''}${ult.division === 'personal' ? '<span class="tag">Personal</span>' : ''}</span>
+      </button><span class="amount">${clp(total)}</span></div>`;
+  });
+  const nombreMes = MESES[Number(ym.slice(5, 7)) - 1];
+  return `<h2 class="sec" title="Cuentas de ${nombreMes}">Cuentas <span class="n ${pagadas === filas.length ? 'verde' : 'rojo'}" style="white-space:nowrap">${pagadas} de ${filas.length} pagadas</span><button class="add" onclick="A.cuentas()">Editar</button></h2>
+    <div class="group">${rows.join('')}</div>`;
+}
+
 function vGastos() {
   const [y, m] = S.mes.split('-').map(Number);
-  const gs = gastosMes(S.mes).sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.creado || 0) - (a.creado || 0));
+  const orden = (a, b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.creado || 0) - (a.creado || 0);
+  const gs = gastosMes(S.mes).sort(orden);
+  const todas = S.filtroCat === 'todas';
   const total = gs.reduce((a, g) => a + num(g.monto), 0);
   let out = `<div class="month"><button class="icon-btn" onclick="A.mes(-1)" aria-label="Mes anterior">${ICON.prev}</button><b>${MESES[m - 1][0].toUpperCase() + MESES[m - 1].slice(1)} ${y}</b><button class="icon-btn" onclick="A.mes(1)" aria-label="Mes siguiente">${ICON.next}</button></div>`;
-  out += `<p class="total">${clp(total)}</p><p class="total-l">${gs.length} ${gs.length === 1 ? 'gasto' : 'gastos'}${S.filtro !== 'todos' ? ' en ' + esc(esp(S.filtro).nombre) : ''}</p>`;
+  out += `<p class="total">${clp(total)}</p><p class="total-l">${gs.length} ${gs.length === 1 ? 'gasto' : 'gastos'}${todas ? '' : ' en ' + esc(S.filtroCat)}</p>`;
 
-  // Balance entre los dos: solo gastos compartidos, mitad y mitad
-  const [a, b] = cfg.nombres;
-  const comp = gs.filter(g => g.division !== 'personal');
-  const pa = comp.filter(g => g.pagadoPor === a).reduce((s, g) => s + num(g.monto), 0);
-  const pb = comp.filter(g => g.pagadoPor === b).reduce((s, g) => s + num(g.monto), 0);
-  const dif = (pa - pb) / 2;
-  if (comp.length) {
-    out += `<div class="balance"><p><b>${Math.abs(dif) < 1 ? 'Están a mano este mes' : `${esc(dif > 0 ? b : a)} le debe ${clp(Math.abs(dif))} a ${esc(dif > 0 ? a : b)}`}</b></p>
-      <p class="d">${esc(a)} pagó ${clp(pa)} y ${esc(b)} pagó ${clp(pb)} en gastos compartidos.</p></div>`;
+  // Balance entre los dos: todo el mes, solo gastos compartidos, mitad y mitad
+  if (todas) {
+    const [a, b] = cfg.nombres;
+    const comp = gs.filter(g => g.division !== 'personal');
+    const pa = comp.filter(g => g.pagadoPor === a).reduce((s, g) => s + num(g.monto), 0);
+    const pb = comp.filter(g => g.pagadoPor === b).reduce((s, g) => s + num(g.monto), 0);
+    const dif = (pa - pb) / 2;
+    if (comp.length) {
+      out += `<div class="balance"><p><b>${Math.abs(dif) < 1 ? 'Están a mano este mes' : `${esc(dif > 0 ? b : a)} le debe ${clp(Math.abs(dif))} a ${esc(dif > 0 ? a : b)}`}</b></p>
+        <p class="d">${esc(a)} pagó ${clp(pa)} y ${esc(b)} pagó ${clp(pb)} en gastos compartidos.</p></div>`;
+    }
   }
-  if (!gs.length) return out + `<p class="calm">Sin gastos en este mes. Registra cuentas, compras y arreglos con el botón Gasto.</p>`;
 
-  const porCat = {};
-  gs.forEach(g => { porCat[g.categoria || 'Otros'] = (porCat[g.categoria || 'Otros'] || 0) + num(g.monto); });
-  const max = Math.max(...Object.values(porCat));
-  out += sec('Por categoría', null) + `<div class="group">${Object.entries(porCat).sort((x, z) => z[1] - x[1]).map(([k, v]) =>
-    `<div class="cat"><span>${esc(k)}</span><b>${clp(v)}</b><span class="bar"><i style="width:${max ? v / max * 100 : 0}%"></i></span></div>`).join('')}</div>`;
-  out += sec('Detalle', null) + group(gs.map(rowGasto), '');
+  const conCuentas = todas || S.filtroCat === CUENTAS;
+  if (conCuentas) out += bloqueCuentas(S.mes);
+
+  // Lo que ya aparece en "Cuentas del mes" no se repite abajo
+  const resto = conCuentas ? gs.filter(g => !(g.categoria === CUENTAS && g.servicio && get('servicios', g.servicio))) : gs;
+  if (!gs.length && !conCuentas) return out + `<p class="calm">Sin gastos de ${esc(S.filtroCat)} en este mes.</p>`;
+  if (!gs.length) return out + `<p class="calm" style="margin-top:12px">Sin otros gastos este mes. Registra compras, arriendo y arreglos con el botón Gasto.</p>`;
+
+  if (todas) {
+    const porCat = {};
+    gs.forEach(g => { porCat[g.categoria || 'Otros'] = (porCat[g.categoria || 'Otros'] || 0) + num(g.monto); });
+    const max = Math.max(...Object.values(porCat));
+    out += sec('Por categoría', null) + `<div class="group">${Object.entries(porCat).sort((x, z) => z[1] - x[1]).map(([k, v]) =>
+      `<button class="cat" onclick="A.filtroCat('${esc(k)}')"><span>${esc(k)}</span><b>${clp(v)}</b><span class="bar"><i style="width:${max ? v / max * 100 : 0}%"></i></span></button>`).join('')}</div>`;
+  }
+
+  // Detalle agrupado por categoría, en el orden de la lista de categorías
+  const grupos = {};
+  resto.forEach(g => { (grupos[g.categoria || 'Otros'] = grupos[g.categoria || 'Otros'] || []).push(g); });
+  const ordenCat = [...CATEGORIAS, ...Object.keys(grupos).filter(k => !CATEGORIAS.includes(k))];
+  ordenCat.filter(k => grupos[k]).forEach(k => {
+    const sub = grupos[k].reduce((a, g) => a + num(g.monto), 0);
+    out += `<h2 class="sec">${esc(k)} <span class="n">${clp(sub)}</span></h2>${group(grupos[k].map(g => rowGasto(g, false)), '')}`;
+  });
   return out;
 }
 

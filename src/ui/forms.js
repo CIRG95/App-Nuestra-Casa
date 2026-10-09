@@ -1,7 +1,7 @@
 // Formularios genéricos: cada colección declara sus campos y openForm los dibuja.
 import { esc, hoy, fechaCorta, iso } from '../core/utils.js';
-import { cfg, yo, CATEGORIAS, FRECUENCIAS, ESTADOS } from '../core/config.js';
-import { list, get, espacios } from '../core/dominio.js';
+import { cfg, yo, CATEGORIAS, FRECUENCIAS, ESTADOS, CUENTAS } from '../core/config.js';
+import { list, get, espacios, servicios, periodoDe } from '../core/dominio.js';
 import { S } from './state.js';
 import { openSheet } from './sheet.js';
 import { opt } from './components.js';
@@ -28,13 +28,21 @@ const FORMS = {
     { k: 'nombre', l: 'Proyecto', t: 'text', req: 1, ph: 'Pintar el dormitorio' }, ESPACIO,
     { k: 'estado', l: 'Estado', t: 'select', opts: ESTADOS, def: 'idea', half: 1 }, { k: 'fechaMeta', l: 'Fecha meta', t: 'date', half: 1 },
     { k: 'presupuesto', l: 'Presupuesto (CLP)', t: 'number' }, NOTAS] },
-  gastos: { nuevo: 'Nuevo gasto', editar: 'Editar gasto', campos: [
-    { k: 'descripcion', l: 'Descripción', t: 'text', req: 1, ph: 'Cuenta de luz, Líder, ferretería…' },
-    { k: 'monto', l: 'Monto (CLP)', t: 'number', req: 1, half: 1 }, { k: 'fecha', l: 'Fecha', t: 'date', def: hoy, half: 1 },
-    { k: 'categoria', l: 'Categoría', t: 'select', opts: CATEGORIAS, def: 'Supermercado' }, ESPACIO,
-    { k: 'pagadoPor', l: 'Pagó', t: 'persona', def: yo, half: 1 },
-    { k: 'division', l: 'Se reparte', t: 'select', opts: { compartido: 'Mitad y mitad', personal: 'No, es personal' }, def: 'compartido', half: 1 },
+  // v0.2: categoría primero; si es una cuenta básica se elige la cuenta en vez de escribir la descripción.
+  gastos: { nuevo: 'Nuevo gasto', editar: 'Editar gasto',
+    prep: v => { v.periodo = periodoDe(v) || hoy().slice(0, 7); },
+    campos: [
+    { k: 'categoria', l: 'Categoría', t: 'select', opts: CATEGORIAS, def: 'Supermercado' },
+    { k: 'descripcion', l: 'Descripción', t: 'text', req: 1, ph: 'Líder, ferretería, veterinaria…', show: `categoria!=${CUENTAS}` },
+    { k: 'servicio', l: 'Cuenta', t: 'servicio', req: 1, show: `categoria=${CUENTAS}` },
+    { k: 'monto', l: 'Monto (CLP)', t: 'number', req: 1, half: 1 }, { k: 'periodo', l: 'Periodo que se paga', t: 'month', req: 1, half: 1 },
+    { k: 'pagadoPor', l: 'Pagó', t: 'persona', def: yo },
+    { k: 'division', l: 'Se reparte entre los dos', t: 'switch', on: 'compartido', off: 'personal', def: 'compartido', ayuda: 'Apagado = gasto personal, no entra al balance.' },
     { k: 'proyecto', l: 'Proyecto asociado', t: 'proyecto' }] },
+  servicios: { nuevo: 'Nueva cuenta', editar: 'Editar cuenta', campos: [
+    { k: 'icono', l: 'Ícono (un emoji)', t: 'text', def: '🧾', half: 1 }, { k: 'nombre', l: 'Cuenta', t: 'text', req: 1, half: 1, ph: 'Luz, TV cable…' },
+    { k: 'proveedor', l: 'Empresa que entrega el servicio', t: 'text', ph: 'Por ejemplo, la distribuidora de luz de tu comuna' },
+    { k: 'activo', l: 'Se paga todos los meses', t: 'switch', on: true, off: false, def: true, ayuda: 'Apágalo si ya no la pagan: deja de aparecer como pendiente.' }] },
   espacios: { nuevo: 'Nuevo espacio', editar: 'Editar espacio', campos: [
     { k: 'icono', l: 'Ícono (un emoji)', t: 'text', def: '📦', half: 1 }, { k: 'nombre', l: 'Nombre', t: 'text', req: 1, half: 1, ph: 'Terraza, bodega…' }] }
 };
@@ -48,6 +56,18 @@ function campoHTML(c, v) {
     case 'select': inp = `<select name="${c.k}">${optsOf(c.opts).map(([k, l]) => opt(k, l, val)).join('')}</select>`; break;
     case 'espacio': inp = `<select name="${c.k}">${espacios().map(e => opt(e.id, e.icono + ' ' + e.nombre, val)).join('')}</select>`; break;
     case 'persona': inp = `<select name="${c.k}">${[...cfg.nombres, ...(c.ambos ? ['Ambos'] : [])].map(n => opt(n, n, val)).join('')}</select>`; break;
+    case 'servicio': {
+      const ss = servicios();
+      inp = `<select name="${c.k}"><option value="">Elige la cuenta…</option>${ss.map(s => opt(s.id, `${s.icono} ${s.nombre}${s.proveedor ? ' · ' + s.proveedor : ''}`, val)).join('')}</select>
+        <span class="mini-ayuda">¿Falta una o quieres poner el proveedor? <button type="button" class="link" onclick="A.cuentas(true)">Editar cuentas</button></span>`;
+      break;
+    }
+    case 'month': inp = `<input name="${c.k}" type="month" value="${esc(val)}" ${c.req ? 'required' : ''}>`; break;
+    case 'switch': {
+      const on = val === c.on || (val === '' && c.def === c.on);
+      return `<label class="f sw" ${c.show ? `data-show="${c.show}"` : ''}><span class="sw-t">${esc(c.l)}${c.ayuda ? `<small>${esc(c.ayuda)}</small>` : ''}</span>
+        <input name="${c.k}" type="checkbox" role="switch" ${on ? 'checked' : ''}><span class="sw-k" aria-hidden="true"></span></label>`;
+    }
     case 'proyecto': inp = `<select name="${c.k}"><option value="">Ninguno</option>${list('proyectos').map(p => opt(p.id, p.nombre, val)).join('')}</select>`; break;
     default:
       inp = `<input name="${c.k}" type="${c.t}" value="${esc(val)}" ${c.t === 'number' ? 'inputmode="decimal" step="any" min="0"' : ''} ${c.req ? 'required' : ''} placeholder="${esc(c.ph || '')}">`;
@@ -79,6 +99,7 @@ function openForm(col, obj, preset = {}) {
     v.espacio = S.espacio || (S.filtro !== 'todos' ? S.filtro : (get('espacios', 'general') ? 'general' : (espacios()[0] || {}).id));
     Object.assign(v, preset);
   }
+  if (F.prep) F.prep(v);
   openSheet(`<form id="frm" onsubmit="A.guardar(event,'${col}','${obj ? obj.id : ''}')" onchange="A.frmShow()" novalidate>
     <h2>${obj ? F.editar : F.nuevo}</h2>${obj ? autoria(obj) : ''}${camposHTML(F.campos, v)}
     <div class="acts">${obj ? `<button type="button" class="ghost bad" onclick="A.borrar('${col}','${obj.id}')">Eliminar</button>` : ''}

@@ -2,8 +2,8 @@
 // Escriben SOLO a través de db (dbInterface); nunca tocan Google directamente,
 // salvo el alta del hogar, que orquesta los servicios.
 import { $, esc, uid, clean, pad, hoy, relDias, num, norm, clp, fechaCorta } from '../core/utils.js';
-import { COLS, cfg, saveCfg, yo, ESTADOS } from '../core/config.js';
-import { list, get, espacios, esp, stockBajo, enCompras, siguienteFecha } from '../core/dominio.js';
+import { COLS, cfg, saveCfg, yo, ESTADOS, CUENTAS, VERSION } from '../core/config.js';
+import { list, get, espacios, esp, stockBajo, enCompras, siguienteFecha, servicios, nombreServicio } from '../core/dominio.js';
 import { db } from '../services/dbInterface.js';
 import { googleAuth, redirectUri } from '../services/googleAuth.js';
 import { googleDriveService } from '../services/googleDriveService.js';
@@ -19,6 +19,7 @@ import { aplicarTema } from './tema.js';
 export const A = {
   tab(k) { S.tab = k; S.espacio = null; render(); window.scrollTo(0, 0); },
   filtro(id) { S.filtro = id; render(); },
+  filtroCat(c) { S.filtroCat = c; render(); },
   invVista(k) { S.invVista = k; render(); },
   irInventario(v) { S.invVista = v; S.filtro = 'todos'; A.tab('inventario'); },
   tarVista(k) { S.tarVista = k; render(); },
@@ -30,38 +31,55 @@ export const A = {
   frmShow() {
     const f = $('#frm'); if (!f) return;
     f.querySelectorAll('[data-show]').forEach(l => {
-      const [k, val] = l.dataset.show.split('=');
-      l.hidden = (f.elements[k] || {}).value !== val;
+      const regla = l.dataset.show, neg = regla.includes('!=');
+      const [k, val] = regla.split(neg ? '!=' : '=');
+      const igual = (f.elements[k] || {}).value === val;
+      l.hidden = neg ? igual : !igual;
     });
   },
   guardar(ev, col, id) {
     ev.preventDefault();
     const f = ev.target, F = FORMS[col];
+    const visible = c => { const el = f.elements[c.k]; return el && !el.closest('label')?.hidden; };
     for (const c of F.campos) {
-      if (c.req && !String(f.elements[c.k].value).trim()) { f.elements[c.k].focus(); return toast(`Falta completar: ${c.l}.`); }
+      if (c.req && visible(c) && !String(f.elements[c.k].value).trim()) { f.elements[c.k].focus(); return toast(`Falta completar: ${c.l}.`); }
     }
     const o = id ? { ...get(col, id) } : { id: uid() };
     F.campos.forEach(c => {
       const el = f.elements[c.k]; if (!el) return;
+      if (!visible(c)) { if (c.show) delete o[c.k]; return; }   // campo que no aplica (p. ej. descripción en una cuenta básica)
       let x = el.value;
-      if (c.t === 'number') x = x === '' ? null : num(x);
+      if (c.t === 'switch') x = el.checked ? c.on : c.off;
+      else if (c.t === 'number') x = x === '' ? null : num(x);
       else if (typeof x === 'string') x = x.trim();
       o[c.k] = x;
     });
+    if (col === 'gastos') {
+      if (o.categoria === CUENTAS) { const s = get('servicios', o.servicio); o.descripcion = nombreServicio(s) || 'Cuenta básica'; }
+      if (!o.fecha) o.fecha = hoy();          // día en que se registró el pago
+      delete o.espacio;
+    }
+    if (col === 'servicios' && o.orden === undefined) o.orden = list('servicios').length;
     if (col === 'compras' && o.comprado === undefined) o.comprado = false;
     if (col === 'tareas') { if (!id) o.hecha = false; if (o.hecha && o.frecuencia !== 'una') o.hecha = false; }
     if (col === 'espacios' && o.orden === undefined) o.orden = list('espacios').length;
-    db.put(col, o); closeSheet(); toast('Guardado');
+    db.put(col, o); toast('Guardado');
+    if (col === 'servicios') return A.cuentas();   // vuelve a la lista de cuentas (mismo panel)
+    if (col === 'gastos') S.borrador = null;
+    closeSheet();
   },
   async borrar(col, id) {
     const o = get(col, id); if (!o) return;
     let msg = '¿Eliminar este registro? Se borra para los dos.';
+    if (col === 'servicios') msg = `¿Eliminar la cuenta ${o.nombre}? Los pagos ya registrados se mantienen. Si solo dejaron de pagarla, mejor apaga "Se paga todos los meses".`;
     if (col === 'espacios') {
       const n = ['inventario', 'compras', 'tareas', 'proyectos', 'gastos'].reduce((a, c) => a + list(c).filter(x => x.espacio === id).length, 0);
       msg = `¿Eliminar el espacio ${o.nombre}?` + (n ? ` Sus ${n} registros quedarán como “Sin espacio”.` : '');
     }
     if (!(await confirmar(msg))) return;
-    db.remove(col, id); closeSheet();
+    db.remove(col, id);
+    if (col === 'servicios') { A.cuentas(); return toast('Cuenta eliminada', { label: 'Deshacer', fn: () => db.put(col, o) }); }
+    closeSheet();
     if (col === 'espacios' && S.espacio === id) { S.espacio = null; }
     toast('Eliminado', { label: 'Deshacer', fn: () => db.put(col, o) });
   },
@@ -130,12 +148,44 @@ export const A = {
       db.remove('compras', c.id);
     });
     if (monto > 0) {
-      db.put('gastos', { id: uid(), descripcion: $('#finDesc').value.trim() || 'Compra supermercado', monto, fecha: hoy(), categoria: 'Supermercado',
-        espacio: get('espacios', 'despensa') ? 'despensa' : 'general', pagadoPor: $('#finPor').value, division: 'compartido', proyecto: '' });
+      db.put('gastos', { id: uid(), descripcion: $('#finDesc').value.trim() || 'Compra supermercado', monto, fecha: hoy(), periodo: hoy().slice(0, 7),
+        categoria: 'Supermercado', pagadoPor: $('#finPor').value, division: 'compartido', proyecto: '' });
     }
     });
     closeSheet();
     toast(`Compra guardada. ${nInv} ${nInv === 1 ? 'producto' : 'productos'} al inventario${monto > 0 ? ' y gasto registrado' : ''}.`);
+  },
+
+  /* ---------- Cuentas básicas (v0.2) ---------- */
+  /** Lista de cuentas para editar nombre, ícono y proveedor. Si se abre desde el formulario de gasto, guarda lo escrito y lo restaura al volver. */
+  cuentas(desdeForm = false) {
+    if (desdeForm) {
+      const f = $('#frm');
+      if (f) {
+        const vals = {};
+        FORMS.gastos.campos.forEach(c => { const el = f.elements[c.k]; if (el) vals[c.k] = c.t === 'switch' ? (el.checked ? c.on : c.off) : (c.t === 'number' && el.value !== '' ? num(el.value) : el.value); });
+        const m = f.getAttribute('onsubmit').match(/'gastos','([^']*)'/);
+        S.borrador = { id: m ? m[1] : '', vals };
+      }
+    }
+    const ss = servicios(false);
+    openSheet(`<h2>Cuentas básicas</h2>
+      <p class="hint">Son las que aparecen en Gastos para marcar como pagadas cada mes. Agrega el proveedor para saber a quién se le paga.</p>
+      ${ss.length ? `<div class="group">${ss.map(s => `<div class="list-esp"><span>${s.icono} ${esc(s.nombre)}${s.proveedor ? `<small class="prov">${esc(s.proveedor)}</small>` : ''}${s.activo === false ? '<small class="prov">No se paga ahora</small>' : ''}</span>
+        <button class="ghost" onclick="A.editar('servicios','${s.id}')">Editar</button></div>`).join('')}</div>` : '<p class="calm">No hay cuentas. Agrega la primera.</p>'}
+      <div class="acts"><button class="ghost" onclick="A.nuevo('servicios')">Agregar cuenta</button><span class="sp"></span>
+      <button class="pri" onclick="A.cerrarCuentas()">${S.borrador ? 'Volver al gasto' : 'Listo'}</button></div>`);
+  },
+  cerrarCuentas() {
+    const b = S.borrador;
+    if (!b) return closeSheet();
+    S.borrador = null;
+    const obj = b.id ? get('gastos', b.id) : null;
+    openForm('gastos', obj ? { ...obj, ...b.vals } : null, b.vals);
+  },
+  /** Abre el formulario de gasto ya listo para pagar una cuenta del mes visible. */
+  pagarCuenta(servicioId) {
+    openForm('gastos', null, { categoria: CUENTAS, servicio: servicioId, periodo: S.mes });
   },
 
   /* Novedades (campana) */
@@ -191,7 +241,7 @@ export const A = {
       <p style="margin:8px 0">${clp(gastado)} gastado${pres ? ' de ' + clp(pres) + ' presupuestados' : ''}</p>
       ${gastos.length ? `<div class="group">${gastos.map(rowGasto).join('')}</div>` : ''}
       ${p.notas ? `<h3>Notas</h3><p style="white-space:pre-wrap;margin:0">${esc(p.notas)}</p>` : ''}
-      <div class="acts"><button class="ghost" onclick="A.nuevo('gastos',{proyecto:'${id}',categoria:'Proyectos',espacio:'${p.espacio}'})">Registrar gasto</button>
+      <div class="acts"><button class="ghost" onclick="A.nuevo('gastos',{proyecto:'${id}',categoria:'Proyectos'})">Registrar gasto</button>
       <button class="ghost" onclick="A.editar('proyectos','${id}')">Editar</button><span class="sp"></span><button class="pri" onclick="closeSheet()">Listo</button></div>`);
   },
   paso(id, i) { const p = clean(get('proyectos', id)); p.pasos[i].hecho = !p.pasos[i].hecho; db.put('proyectos', p); A.verProyecto(id); },
@@ -249,11 +299,13 @@ export const A = {
       <h3>Espacios</h3>
       <div class="group">${espacios().map(e => `<div class="list-esp"><span>${e.icono} ${esc(e.nombre)}</span><button class="ghost" onclick="A.editar('espacios','${e.id}')">Editar</button></div>`).join('')}</div>
       <div class="acts"><button class="ghost" onclick="A.nuevo('espacios')">Agregar espacio</button></div>
+      <h3>Cuentas básicas</h3>
+      <div class="acts" style="margin-top:0"><button class="ghost" onclick="A.cuentas()">Editar cuentas y proveedores</button></div>
       <h3>Google Drive y Calendar</h3>${sync}
       <h3>Respaldo</h3>
       <div class="acts" style="margin-top:0"><button class="ghost" onclick="A.exportar()">Descargar respaldo</button>
       <label class="ghost" style="display:inline-flex;align-items:center">Importar respaldo<input type="file" accept="application/json,.json" hidden onchange="A.importar(this)"></label></div>
-      <div class="acts"><span class="sp"></span><button class="pri" onclick="closeSheet()">Listo</button></div>`);
+      <div class="acts"><span class="hint" style="margin:0">Versión ${VERSION}</span><span class="sp"></span><button class="pri" onclick="closeSheet()">Listo</button></div>`);
   },
   modoAlta(m) { S.modoAlta = m; A.ajustes(); },
   tema(t) { cfg.tema = t; saveCfg(); aplicarTema(); A.ajustes(); },

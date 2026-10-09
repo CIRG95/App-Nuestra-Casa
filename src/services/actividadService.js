@@ -13,7 +13,7 @@
 // =====================================================================
 import { db } from './dbInterface.js';
 import { cfg, saveCfg, yo, ESTADOS } from '../core/config.js';
-import { uid, clp, num, hoy } from '../core/utils.js';
+import { uid, clp, num, hoy, MESES } from '../core/utils.js';
 
 const AGRUPAR_MS = 10 * 60000;
 const VIDA_MS = 30 * 864e5;
@@ -40,7 +40,7 @@ function frase(col, o, prev) {
   const n = nombreDe(col, o);
   if (!prev) {
     return { compras: `agregó ${n} a la lista de compras`, inventario: `agregó ${n} al inventario`, tareas: `creó la tarea ${n}`,
-      proyectos: `creó el proyecto ${n}`, gastos: `registró el gasto ${n} por ${clp(o.monto)}`, espacios: `creó el espacio ${n}` }[col] || null;
+      proyectos: `creó el proyecto ${n}`, gastos: o.servicio && o.periodo ? `pagó ${n} de ${MESES[Number(o.periodo.slice(5, 7)) - 1]} por ${clp(o.monto)}` : `registró el gasto ${n} por ${clp(o.monto)}`, espacios: `creó el espacio ${n}` }[col] || null;
   }
   switch (col) {
     case 'tareas': {

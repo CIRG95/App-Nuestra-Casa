@@ -1,7 +1,8 @@
 // Piezas visuales reutilizables: íconos, encabezados de sección y filas de cada lista.
 import { esc, clp, relDias, diasHasta, fechaCorta, num } from '../core/utils.js';
 import { cfg, ESTADOS } from '../core/config.js';
-import { list, esp, stockBajo, enCompras, freqTxt, avanceSemanal } from '../core/dominio.js';
+import { list, get, esp, stockBajo, enCompras, freqTxt, avanceSemanal, periodoDe } from '../core/dominio.js';
+import { MESES } from '../core/utils.js';
 
 const svg = p => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
 const ICON = {
@@ -92,11 +93,14 @@ function rowProyecto(p, conEsp = true) {
   </button>`;
 }
 
-function rowGasto(g) {
+function rowGasto(g, conCat = true) {
+  const s = g.servicio ? get('servicios', g.servicio) : null;
+  const per = periodoDe(g), mesFecha = (g.fecha || '').slice(0, 7);
+  const perTxt = per && per !== mesFecha ? `<span>Periodo ${MESES[Number(per.slice(5, 7)) - 1]}</span>` : '';
   return `<div class="row">
     <button class="row-main" onclick="A.editar('gastos','${g.id}')">
-      <span class="t">${esc(g.descripcion)}</span>
-      <span class="s"><span>${fechaCorta(g.fecha)}</span><span>${esc(g.categoria || '')}</span>${who(g.pagadoPor)}${g.division === 'personal' ? '<span class="tag">Personal</span>' : ''}</span>
+      <span class="t">${s ? s.icono + ' ' : ''}${esc(g.descripcion)}</span>
+      <span class="s">${g.fecha ? `<span>${fechaCorta(g.fecha)}</span>` : ''}${perTxt}${conCat ? `<span>${esc(g.categoria || '')}</span>` : ''}${who(g.pagadoPor)}${g.division === 'personal' ? '<span class="tag">Personal</span>' : ''}</span>
     </button>
     <span class="amount">${clp(g.monto)}</span>
   </div>`;

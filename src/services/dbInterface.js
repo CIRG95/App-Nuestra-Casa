@@ -36,7 +36,7 @@
  * @property {() => Promise<void>} desconectar        Olvidar sesión en este teléfono (no borra la nube).
  */
 
-import { COLS, DEF_ESPACIOS } from '../core/config.js';
+import { COLS, DEF_ESPACIOS, DEF_SERVICIOS } from '../core/config.js';
 import { load, save, clean } from '../core/utils.js';
 
 const CLAVE = 'casa.data';
@@ -67,15 +67,18 @@ export const firma = d => COLS.map(c => Object.keys(d[c] || {}).sort().map(id =>
 /* ---------- Internos ---------- */
 const persistir = () => save(CLAVE, datos);
 function emitir(tipo, ...args) { oyentes[tipo].forEach(f => { try { f(...args); } catch (e) { console.error(e); } }); }
-function sembrarEspacios() {
-  // mod: 0 → cualquier edición real (de cualquiera de los dos) gana al fusionar.
-  DEF_ESPACIOS.forEach(([id, icono, nombre], i) => { datos.espacios[id] = { id, icono, nombre, orden: i, mod: 0 }; });
-  persistir();
+function sembrar() {
+  // Valores iniciales con mod: 0 e ids fijos → iguales en ambos teléfonos, y cualquier edición real gana al fusionar.
+  // Solo si la colección está vacía de verdad (sin lápidas): si alguien borró todo, no se vuelve a sembrar.
+  let n = 0;
+  if (!Object.keys(datos.espacios).length) { DEF_ESPACIOS.forEach(([id, icono, nombre], i) => { datos.espacios[id] = { id, icono, nombre, orden: i, mod: 0 }; }); n++; }
+  if (!Object.keys(datos.servicios || {}).length) { datos.servicios = {}; DEF_SERVICIOS.forEach(([id, icono, nombre], i) => { datos.servicios[id] = { id, icono, nombre, proveedor: '', activo: true, orden: i, mod: 0 }; }); n++; }
+  if (n) persistir();
 }
 function recibir(remoto) {
   const m = fusionar(datos, remoto || {});
   COLS.forEach(c => { datos[c] = m[c]; });
-  if (!Object.keys(datos.espacios).length) sembrarEspacios();
+  sembrar();
   persistir(); emitir('cambio');
 }
 function setEstado(e) {
@@ -91,7 +94,7 @@ export const db = {
     if (fnAutor) autor = fnAutor;
     const raw = load(CLAVE);
     if (raw) COLS.forEach(c => { datos[c] = raw[c] || {}; });
-    if (!Object.keys(datos.espacios).length) sembrarEspacios();
+    sembrar();
     if (ad && ad.configurado()) await db.conectar(ad);
     else setEstado('local');
   },

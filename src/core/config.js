@@ -1,10 +1,17 @@
 // Constantes del dominio y configuración de ESTE teléfono (localStorage 'casa.cfg', no se sincroniza).
 import { load, save } from './utils.js';
-const COLS = ['espacios', 'inventario', 'compras', 'tareas', 'proyectos', 'gastos', 'actividad'];
+const VERSION = '0.2';
+const COLS = ['espacios', 'inventario', 'compras', 'tareas', 'proyectos', 'gastos', 'actividad', 'servicios'];
 const DEF_ESPACIOS = [
   ['cocina', '🍳', 'Cocina'], ['despensa', '🥫', 'Despensa'], ['bano', '🛁', 'Baño'],
   ['dormitorio', '🛏️', 'Dormitorio'], ['living', '🛋️', 'Living'], ['lavanderia', '🧺', 'Lavandería'],
   ['patio', '🌿', 'Patio'], ['general', '🏠', 'General']
+];
+const CUENTAS = 'Cuentas básicas';
+/** Cuentas básicas iniciales: [id, ícono, nombre]. El proveedor lo completa cada hogar. */
+const DEF_SERVICIOS = [
+  ['luz', '💡', 'Luz'], ['agua', '💧', 'Agua'], ['gas', '🔥', 'Gas'],
+  ['internet', '📶', 'Internet'], ['celular', '📱', 'Celular'], ['comunes', '🏢', 'Gastos comunes']
 ];
 const CATEGORIAS = ['Supermercado', 'Cuentas básicas', 'Arriendo / dividendo', 'Mantención', 'Proyectos', 'Aseo', 'Mascotas', 'Salidas', 'Otros'];
 const FRECUENCIAS = {
@@ -19,4 +26,4 @@ const saveCfg = () => save('casa.cfg', cfg);
 
 const yo = () => cfg.yo || cfg.nombres[0];
 
-export { COLS, DEF_ESPACIOS, CATEGORIAS, FRECUENCIAS, ESTADOS, ORDEN_ESTADO, cfg, saveCfg, yo };
+export { VERSION, CUENTAS, DEF_SERVICIOS, COLS, DEF_ESPACIOS, CATEGORIAS, FRECUENCIAS, ESTADOS, ORDEN_ESTADO, cfg, saveCfg, yo };
